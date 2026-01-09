@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Smart Waste Web Application</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      height: 100vh;
+    }
+
+    .app {
+      display: flex;
+      height: 100vh;
+      width: 100%;
+    }
+
+    /* LEFT PANEL */
+    .left {
+      width: 45%;
+      background: linear-gradient(135deg, #2e7d32, #66bb6a);
+      color: white;
+      padding: 60px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .left h1 {
+      font-size: 38px;
+      margin-bottom: 15px;
+    }
+
+    .left p {
+      font-size: 16px;
+      line-height: 1.6;
+      max-width: 420px;
+    }
+
+    /* RIGHT PANEL */
+    .right {
+      width: 55%;
+      padding: 60px;
+      background: #f9f9f9;
+      overflow-y: auto;
+    }
+
+    label {
+      display: block;
+      margin-top: 20px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    input[type="file"],
+    input[type="text"],
+    textarea {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+
+    textarea {
+      height: 90px;
+      resize: none;
+    }
+
+    input:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #2e7d32;
+    }
+
+    #preview {
+      width: 100%;
+      margin-top: 15px;
+      display: none;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 18px;
+      padding: 14px;
+      background: #2e7d32;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #388e3c;
+    }
+
+    button:hover {
+      background: #1b5e20;
+    }
+
+    #locationStatus {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #333;
+    }
+
+    #status {
+      margin-top: 20px;
+      font-weight: bold;
+      color: green;
+      text-align: center;
+    }
+
+    /* MOBILE */
+    @media (max-width: 900px) {
+      .app {
+        flex-direction: column;
+      }
+      .left, .right {
+        width: 100%;
+        padding: 40px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <!-- LEFT PANEL -->
+  <div class="left">
+    <h1>Smart Waste Web Application</h1>
+    <p>
+      A smart city platform where citizens can report garbage issues
+      by uploading images, adding complaint details, and selecting
+      the exact location. This enables faster and smarter waste
+      management.
+    </p>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right">
+
+    <label>Upload Garbage Image</label>
+    <input type="file" id="imageInput" accept="image/*">
+    <img id="preview">
+
+    <label>Describe the Problem (Complaint)</label>
+    <textarea id="complaintBox" placeholder="Example: Garbage overflowing for 2 days, bad smell, health risk..."></textarea>
+
+    <label>Auto Detect Current Location</label>
+    <button class="secondary" onclick="getCurrentLocation()">Detect My Location</button>
+
+    <label>Or Enter Location Manually</label>
+    <input type="text" id="manualLocation" placeholder="Area / Street / Landmark">
+    <button class="secondary" onclick="useManualLocation()">Use Entered Location</button>
+
+    <div id="locationStatus">Location not detected</div>
+
+    <button onclick="submitReport()">Submit Complaint</button>
+
+    <div id="status"></div>
+  </div>
+
+</div>
+
+<script>
+  const imageInput = document.getElementById("imageInput");
+  const preview = document.getElementById("preview");
+  const locationStatus = document.getElementById("locationStatus");
+  const manualLocation = document.getElementById("manualLocation");
+  const complaintBox = document.getElementById("complaintBox");
+  const statusText = document.getElementById("status");
+
+  let detectedLocation = "";
+
+  // Image preview
+  imageInput.addEventListener("change", function () {
+    const file = imageInput.files[0];
+    if (file) {
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = "block";
+    }
+  });
+
+  // AUTO LOCATION (GPS)
+  function getCurrentLocation() {
+    locationStatus.innerText = "Detecting current location...";
+    navigator.geolocation.getCurrentPosition(
+      async pos => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+        );
+        const data = await res.json();
+
+        detectedLocation = data.display_name;
+        locationStatus.innerText = "Location detected: " + detectedLocation;
+      },
+      () => {
+        locationStatus.innerText = "Location access denied";
+      }
+    );
+  }
+
+  // MANUAL LOCATION (TEXT → REAL LOCATION)
+  async function useManualLocation() {
+    const query = manualLocation.value.trim();
+
+    if (!query) {
+      alert("Please enter a location");
+      return;
+    }
+
+    locationStatus.innerText = "Detecting entered location...";
+
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${query}`
+      );
+      const data = await res.json();
+
+      if (data.length === 0) {
+        locationStatus.innerText = "Location not found";
+        return;
+      }
+
+      detectedLocation = data[0].display_name;
+      locationStatus.innerText = "Location detected: " + detectedLocation;
+    } catch {
+      locationStatus.innerText = "Unable to detect entered location";
+    }
+  }
+
+  // SUBMIT
+  function submitReport() {
+    if (!imageInput.files[0]) {
+      alert("Please upload a garbage image");
+      return;
+    }
+
+    if (!complaintBox.value.trim()) {
+      alert("Please describe the problem");
+      return;
+    }
+
+    if (!detectedLocation) {
+      alert("Please detect location (auto or manual)");
+      return;
+    }
+
+    statusText.innerText = "Complaint submitted successfully!";
+  }
+</script>
+
+</body>
+</html>
